@@ -1,11 +1,13 @@
-﻿using System;
+﻿using Microsoft.VisualBasic.Devices;
+using NAudio;
+using NAudio.Wave;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using NAudio;
-using NAudio.Wave;
 using TagLib;
 
 namespace SharpBeatScanner.Cli
@@ -156,48 +158,123 @@ namespace SharpBeatScanner.Cli
             GC.SuppressFinalize(this);
         }
 
-        public async Task<float[]> GetCurrentWindowAsync(int windowSize, int lookingRange, bool monoMixdown = true, bool normalize = false)
+        public async Task<float[]> GetCurrentWindowAsync(int windowSize = 65536, int lookingRange = 2, bool mono = false, bool lookBackwards = false)
         {
-            return await Task.Run(() =>
+            if (this.Data == null || this.Data.Length == 0 || this.SampleRate <= 0 || this.Channels <= 0)
             {
-                int centerSample = (int) (this.Timing * this.SampleRate * this.Channels);
-                int halfWindow = windowSize / 2;
-                int startSample = Math.Max(centerSample - halfWindow, 0);
-                int endSample = Math.Min(centerSample + halfWindow, this.Data.Length);
-                var data = this.GetSampleRangeCopy(startSample, endSample);
+                return [];
+            }
 
-                if (monoMixdown && this.Channels > 1)
+            windowSize = Math.Max(1, windowSize);
+            lookingRange = Math.Max(1, lookingRange);
+            windowSize = (int) Math.Pow(2, Math.Ceiling(Math.Log(windowSize, 2)));
+
+            long posFrames = 0;
+            int halfWindowFrames = (windowSize * lookingRange) / 2;
+            int fullWindowFrames = halfWindowFrames * 2;
+            if (fullWindowFrames <= 0)
+            {
+                return [];
+            }
+
+            if (mono)
+            {
+                float[] data = await ConvertToMonoAsync(this, false, 2);
+                if (data.Length == 0)
                 {
-                    float[] mono = new float[data.Length / this.Channels];
-                    for (int i = 0, j = 0; i < data.Length; i += this.Channels, j++)
-                    {
-                        float sum = 0;
-                        for (int c = 0; c < this.Channels; c++)
-                        {
-                            if (i + c < data.Length)
-                                sum += data[i + c];
-                        }
-                        mono[j] = sum / this.Channels;
-                    }
-                    data = mono;
+                    return [];
                 }
 
-                if (normalize)
+                long startFrame = posFrames - (lookBackwards ? halfWindowFrames : 0);
+                long endFrameExclusive = startFrame + fullWindowFrames;
+
+                while (endFrameExclusive > data.Length)
                 {
-                    float max = 0;
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        float abs = Math.Abs(data[i]);
-                        if (abs > max) max = abs;
-                    }
-                    if (max > 0)
-                    {
-                        for (int i = 0; i < data.Length; i++) data[i] /= max;
-                    }
+                    startFrame -= windowSize;
+                    endFrameExclusive -= windowSize;
                 }
 
-                return data;
-            });
+                while (startFrame < 0)
+                {
+                    startFrame += windowSize;
+                    endFrameExclusive += windowSize;
+                }
+
+                if (endFrameExclusive > data.LongLength)
+                {
+                    return [];
+                }
+
+                float[] current = new float[fullWindowFrames];
+                await Task.Run(() => Array.Copy(data, (int) startFrame, current, 0, fullWindowFrames)).ConfigureAwait(false);
+                return current;
+            }
+            else
+            {
+                float[] data = this.Data;
+                long startFloatIndex = (posFrames - (lookBackwards ? halfWindowFrames : 0)) * this.Channels;
+                long endFloatIndexExclusive = startFloatIndex + ((long) fullWindowFrames * this.Channels);
+
+                while (endFloatIndexExclusive > data.Length)
+                {
+                    startFloatIndex -= windowSize * this.Channels;
+                    endFloatIndexExclusive -= windowSize * this.Channels;
+                }
+
+                while (startFloatIndex < 0)
+                {
+                    startFloatIndex += windowSize * this.Channels;
+                    endFloatIndexExclusive += windowSize * this.Channels;
+                }
+
+                if (endFloatIndexExclusive > data.LongLength || startFloatIndex < 0)
+                {
+                    Debug.WriteLine("GetCurrentWindow: Out of bounds access prevented.");
+                    return [];
+                }
+
+                int lengthFloats = fullWindowFrames * this.Channels;
+                float[] current = new float[lengthFloats];
+                await Task.Run(() => Array.Copy(data, (int) startFloatIndex, current, 0, lengthFloats)).ConfigureAwait(false);
+                return current;
+            }
+        }
+
+        public static async Task<float[]> ConvertToMonoAsync(AudioObj audio, bool set, int maxWorkers)
+        {
+            maxWorkers = Math.Clamp(maxWorkers, 1, Environment.ProcessorCount);
+
+            if (audio.Data == null || audio.Data.Length == 0 || audio.Channels <= 0)
+            {
+                return [];
+            }
+
+            int monoSampleCount = audio.Data.Length / audio.Channels;
+            float[] monoData = new float[monoSampleCount];
+
+            await Task.Run(() =>
+            {
+                Parallel.For(0, monoSampleCount, new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = maxWorkers
+                }, i =>
+                {
+                    float sum = 0.0f;
+                    for (int channel = 0; channel < audio.Channels; channel++)
+                    {
+                        sum += audio.Data[i * audio.Channels + channel];
+                    }
+                    monoData[i] = sum / audio.Channels;
+                });
+            }).ConfigureAwait(false);
+
+            if (set)
+            {
+                audio.Data = monoData;
+                audio.Channels = 1;
+            }
+
+            return monoData;
         }
     }
 }

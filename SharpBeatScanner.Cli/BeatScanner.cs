@@ -15,12 +15,7 @@ namespace SharpBeatScanner.Cli
 {
     public static class BeatScanner
     {
-        private static CancellationTokenSource? liveBpmCts = null;
-        public static int MaxLiveBpmDurationSeconds { get; set; } = 60;
-
-        public static double? LiveScanBpm { get; private set; } = null;
-
-        public static async Task<double> ScanBpmAsync(AudioObj obj, int windowSize = 65536, int lookingRange = 2, int minBpm = 60, int maxBpm = 200, bool autoGetTiming = false)
+        public static async Task<double> ScanBpmAsync(AudioObj obj, int windowSize = 65536, int lookingRange = 4, int minBpm = 60, int maxBpm = 200, bool autoGetTiming = false)
         {
             if (obj == null || obj.Data == null || obj.Data.Length <= 0)
             {
@@ -29,7 +24,7 @@ namespace SharpBeatScanner.Cli
 
             Stopwatch sw = Stopwatch.StartNew();
 
-            var monoData = await obj.GetCurrentWindowAsync(windowSize, lookingRange, true, true);
+            var monoData = await obj.GetCurrentWindowAsync(windowSize, lookingRange, mono: true, lookBackwards: true);
 
             // Check if timing already scanned
             float timing = 1.0f;
@@ -59,7 +54,7 @@ namespace SharpBeatScanner.Cli
                 return -1.0f;
             }
 
-            var monoData = await obj.GetCurrentWindowAsync(windowSize, lookingRange, true, false);
+            var monoData = await obj.GetCurrentWindowAsync(windowSize, lookingRange, mono: true, lookBackwards: false);
 
             float timing = await EstimateTimingAsync(monoData, obj.SampleRate);
 
@@ -78,6 +73,10 @@ namespace SharpBeatScanner.Cli
             return await Task.Run(() =>
             {
                 int n = samples.Length;
+                if (n < 2)
+                {
+                    return 0.0;
+                }
 
                 // 1) Vorverarbeitung: Hüllkurve/Onset-ähnliches Signal
                 //    Absolutwert -> schnelle & langsame gleitende Mittelwerte -> Halbwellendetektion
@@ -88,7 +87,7 @@ namespace SharpBeatScanner.Cli
                 }
 
                 // Fenster für schnelle/slow MA (10ms/400ms, gekappt auf Datenlänge)
-                int fastWin = Math.Clamp(sampleRate / 100, 1, n);   // ~10 ms
+                int fastWin = Math.Clamp(sampleRate / 100, 1, n - 1);   // ~10 ms
                 int slowWin = Math.Clamp(sampleRate / 2, fastWin + 1, n); // ~0.5 s
 
                 double[] fast = new double[n];
@@ -240,6 +239,10 @@ namespace SharpBeatScanner.Cli
             return await Task.Run(() =>
             {
                 int n = samples.Length;
+                if (n < 2)
+                {
+                    return -1.0f;
+                }
 
                 // 1) Novelty (Onset-Hüllkurve)
                 double[] abs = new double[n];
@@ -248,7 +251,7 @@ namespace SharpBeatScanner.Cli
                     abs[i] = Math.Abs(samples[i]);
                 }
 
-                int fastWin = Math.Clamp(sampleRate / 100, 1, n);        // ~10 ms
+                int fastWin = Math.Clamp(sampleRate / 100, 1, n - 1);        // ~10 ms
                 int slowWin = Math.Clamp(sampleRate / 2, fastWin + 1, n); // ~0.5 s
 
                 double[] fast = new double[n];
@@ -508,6 +511,7 @@ namespace SharpBeatScanner.Cli
                 return (float) normalized;
             });
         }
+
 
         private static double[] BuildMeterTemplate(int K)
         {
