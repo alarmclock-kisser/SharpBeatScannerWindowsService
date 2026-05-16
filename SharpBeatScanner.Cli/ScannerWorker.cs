@@ -268,7 +268,7 @@ namespace SharpBeatScanner.Cli
                 {
                     if (force || audio.Bpm <= 0) // Missing BPM or Force true
                     {
-                        var scannedBpm = await BeatScanner.ScanBpmAsync_V2(audio);
+                        var scannedBpm = await BeatScanner.ScanBpmAsync(audio);
                         if (scannedBpm > 0)
                         {
                             try
