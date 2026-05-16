@@ -6,16 +6,24 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BunLabs.NAudio.Flac" Version="2.0.1" />
+    <PackageReference Include="libbassflac" Version="2.4.6.1" />
+    <PackageReference Include="ManagedBass" Version="4.0.2" />
+    <PackageReference Include="ManagedBass.Fx" Version="4.0.2" />
+    <PackageReference Include="ManagedBass.Mix" Version="4.0.2" />
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.8" />
     <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
+    <PackageReference Include="libbass" Version="2.4.18.3" />
+    <PackageReference Include="libbassmix" Version="2.4.12" />
   </ItemGroup>
 
   <ItemGroup>

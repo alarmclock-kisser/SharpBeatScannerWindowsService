@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Concurrent;
 using System.IO;
+using AudioAnalysis;
 
 namespace SharpBeatScanner.Cli
 {
@@ -22,6 +23,7 @@ namespace SharpBeatScanner.Cli
     public class ScannerWorker : IDisposable
     {
         private readonly Settings _settings;
+        private readonly BeatScanner_V3 _beatScanner = new BeatScanner_V3();
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private readonly ConcurrentQueue<(string FilePath, bool Force)> _fileQueue = new ConcurrentQueue<(string FilePath, bool Force)>();
         private readonly HashSet<string> _processingFiles = new HashSet<string>();
@@ -30,12 +32,23 @@ namespace SharpBeatScanner.Cli
         private int _currentWorkerCount = 0;
         private readonly object _workerLock = new object();
         private List<FileSystemWatcher> _watchers = new List<FileSystemWatcher>();
+        private double _currentAnalysisProgress = 0.0;
 
         public record LastScannedTrackInfo(string FileName, double Bpm);
 
         public int QueueCount => this._fileQueue.Count;
         public int ProcessedCount { get; private set; } = 0;
         public LastScannedTrackInfo? LastScannedTrack { get; private set; }
+        public double CurrentAnalysisProgress
+        {
+            get
+            {
+                lock (this._lock)
+                {
+                    return this._currentAnalysisProgress;
+                }
+            }
+        }
 
         public event Action? StateChanged;
 
@@ -110,6 +123,7 @@ namespace SharpBeatScanner.Cli
         public void RescanAll()
         {
             this.ProcessedCount = 0;
+            this.SetAnalysisProgress(0.0);
             StateChanged?.Invoke();
             foreach (var dirRaw in this._settings.DirectoriesToWatch)
             {
@@ -261,6 +275,12 @@ namespace SharpBeatScanner.Cli
 
             bool didScan = false;
             AudioObj? audio = null;
+            var progress = new Progress<double>(value =>
+            {
+                this.SetAnalysisProgress(value);
+                StateChanged?.Invoke();
+            });
+
             try
             {
                 audio = await AudioObj.ImportAsync(filePath);
@@ -268,15 +288,18 @@ namespace SharpBeatScanner.Cli
                 {
                     if (force || audio.Bpm <= 0) // Missing BPM or Force true
                     {
-                        var scannedBpm = await BeatScanner.ScanBpmAsync(audio);
+                        this.SetAnalysisProgress(0.0);
+                        StateChanged?.Invoke();
+
+                        var scannedBpm = await BeatScanner.ScanBpmAsync(audio, 32768, 16, 88, 210, false);
                         if (scannedBpm > 0)
                         {
                             try
                             {
                                 var tagFile = TagLib.File.Create(filePath);
-                                tagFile.Tag.BeatsPerMinute = (uint)Math.Round(scannedBpm);
+                                tagFile.Tag.BeatsPerMinute = (uint)Math.Round((decimal)scannedBpm);
                                 tagFile.Save();
-                                this.LastScannedTrack = new LastScannedTrackInfo(Path.GetFileNameWithoutExtension(filePath), scannedBpm);
+                                this.LastScannedTrack = new LastScannedTrackInfo(Path.GetFileNameWithoutExtension(filePath), (double)scannedBpm);
                                 didScan = true;
                             }
                             catch (Exception ex)
@@ -305,9 +328,19 @@ namespace SharpBeatScanner.Cli
                     GC.WaitForPendingFinalizers();
                     GC.Collect();
                 }
+
+                this.SetAnalysisProgress(0.0);
             }
 
             return didScan;
+        }
+
+        private void SetAnalysisProgress(double value)
+        {
+            lock (this._lock)
+            {
+                this._currentAnalysisProgress = Math.Clamp(value, 0.0, 1.0);
+            }
         }
 
         private bool WaitForFileReady(string filename, TimeSpan timeout)

@@ -266,8 +266,9 @@ namespace SharpBeatScanner.Cli
             }
             else
             {
-                statusItem.Text = $"Status: Processing... ({worker.QueueCount} pending / {worker.ProcessedCount} processed)";
-                icon.Text = $"SharpBeatScanner - Processing ({worker.QueueCount} left)";
+                var progressPercent = Math.Clamp(worker.CurrentAnalysisProgress, 0.0, 1.0) * 100.0;
+                statusItem.Text = $"Status: Processing... {progressPercent:F0}% ({worker.QueueCount} pending / {worker.ProcessedCount} processed)";
+                icon.Text = $"SharpBeatScanner - Processing {progressPercent:F0}% ({worker.QueueCount} left)";
             }
 
             if (worker.LastScannedTrack is null)
