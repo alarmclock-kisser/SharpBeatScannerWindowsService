@@ -31,8 +31,11 @@ namespace SharpBeatScanner.Cli
         private readonly object _workerLock = new object();
         private List<FileSystemWatcher> _watchers = new List<FileSystemWatcher>();
 
+        public record LastScannedTrackInfo(string FileName, double Bpm);
+
         public int QueueCount => this._fileQueue.Count;
         public int ProcessedCount { get; private set; } = 0;
+        public LastScannedTrackInfo? LastScannedTrack { get; private set; }
 
         public event Action? StateChanged;
 
@@ -273,6 +276,7 @@ namespace SharpBeatScanner.Cli
                                 var tagFile = TagLib.File.Create(filePath);
                                 tagFile.Tag.BeatsPerMinute = (uint)Math.Round(scannedBpm);
                                 tagFile.Save();
+                                this.LastScannedTrack = new LastScannedTrackInfo(Path.GetFileNameWithoutExtension(filePath), scannedBpm);
                                 didScan = true;
                             }
                             catch (Exception ex)

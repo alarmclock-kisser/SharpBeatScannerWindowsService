@@ -3,6 +3,7 @@ using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Text.Json;
+using System.Globalization;
 
 namespace SharpBeatScanner.Cli
 {
@@ -44,6 +45,9 @@ namespace SharpBeatScanner.Cli
 
             var statusItem = new ToolStripMenuItem("Status: Idle");
             statusItem.Enabled = false;
+
+            var lastTrackItem = new ToolStripMenuItem();
+            lastTrackItem.Enabled = false;
             
             var settingsMenu = new ToolStripMenuItem("Settings");
 
@@ -228,6 +232,7 @@ namespace SharpBeatScanner.Cli
             };
 
             contextMenu.Items.Add(statusItem);
+            contextMenu.Items.Add(lastTrackItem);
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add(settingsMenu);
             contextMenu.Items.Add(rescanItem);
@@ -240,19 +245,19 @@ namespace SharpBeatScanner.Cli
                 // Update UI on main thread
                 if (contextMenu.InvokeRequired)
                 {
-                    contextMenu.Invoke(new MethodInvoker(() => UpdateStatus(worker, statusItem, notifyIcon)));
+                    contextMenu.Invoke(new MethodInvoker(() => UpdateStatus(worker, statusItem, lastTrackItem, notifyIcon)));
                 }
                 else
                 {
-                    UpdateStatus(worker, statusItem, notifyIcon);
+                    UpdateStatus(worker, statusItem, lastTrackItem, notifyIcon);
                 }
             };
-            UpdateStatus(worker, statusItem, notifyIcon);
+            UpdateStatus(worker, statusItem, lastTrackItem, notifyIcon);
 
             Application.Run();
         }
 
-        private static void UpdateStatus(ScannerWorker worker, ToolStripMenuItem statusItem, NotifyIcon icon)
+        private static void UpdateStatus(ScannerWorker worker, ToolStripMenuItem statusItem, ToolStripMenuItem lastTrackItem, NotifyIcon icon)
         {
             if (worker.QueueCount == 0)
             {
@@ -264,6 +269,40 @@ namespace SharpBeatScanner.Cli
                 statusItem.Text = $"Status: Processing... ({worker.QueueCount} pending / {worker.ProcessedCount} processed)";
                 icon.Text = $"SharpBeatScanner - Processing ({worker.QueueCount} left)";
             }
+
+            if (worker.LastScannedTrack is null)
+            {
+                lastTrackItem.Visible = false;
+            }
+            else
+            {
+                lastTrackItem.Visible = true;
+                lastTrackItem.Text = FormatLastScannedTrack(worker.LastScannedTrack.FileName, worker.LastScannedTrack.Bpm);
+            }
+        }
+
+        private static string FormatLastScannedTrack(string fileName, double bpm)
+        {
+            var suffix = $" [{bpm.ToString("F2", CultureInfo.InvariantCulture)}]";
+            var maxTitleLength = 48;
+            var availableTitleLength = Math.Max(1, maxTitleLength - suffix.Length);
+            var title = Ellipsize(fileName, availableTitleLength);
+            return title + suffix;
+        }
+
+        private static string Ellipsize(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+            {
+                return value;
+            }
+
+            if (maxLength <= 3)
+            {
+                return value.Substring(0, maxLength);
+            }
+
+            return value.Substring(0, maxLength - 3).TrimEnd() + "...";
         }
 
         private static void SetStartup()
