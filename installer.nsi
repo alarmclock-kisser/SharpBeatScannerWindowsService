@@ -86,7 +86,7 @@ SectionEnd
 ; ---------------------------------------------------------
 ; Uninstaller
 Section "Uninstall"
-	; Prozess beenden
+	; Prozess beenden 
 	nsExec::Exec 'taskkill /F /IM SharpBeatScanner.Cli.exe'
 	Sleep 1000
 
