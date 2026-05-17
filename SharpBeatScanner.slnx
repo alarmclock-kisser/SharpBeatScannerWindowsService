@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="SharpBeatScanner.Cli/SharpBeatScanner.Cli.csproj" />
+  <Project Path="SharpBeatScanner.DirectMl/SharpBeatScanner.DirectMl.csproj" Id="899a1d2b-0ec1-402b-9cfc-7d62be252228" />
   <Project Path="SharpBeatScanner.MixMeister/SharpBeatScanner.MixMeister.csproj" />
 </Solution>

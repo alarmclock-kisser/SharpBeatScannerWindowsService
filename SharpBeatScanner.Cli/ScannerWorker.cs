@@ -142,7 +142,10 @@ namespace SharpBeatScanner.Cli
                 var files = Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories);
                 foreach (var file in files)
                 {
-                    if (this.IsPathExcluded(file)) continue;
+                    if (this.IsPathExcluded(file))
+                    {
+                        continue;
+                    }
 
                     var ext = Path.GetExtension(file).ToLower();
                     if (this._settings.ExtensionsToWatch.Contains(ext))
@@ -160,7 +163,9 @@ namespace SharpBeatScanner.Cli
         private bool IsPathExcluded(string targetPath)
         {
             if (this._settings.DirectoriesToExclude == null || this._settings.DirectoriesToExclude.Length == 0)
+            {
                 return false;
+            }
 
             var targetNormal = Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
@@ -181,7 +186,11 @@ namespace SharpBeatScanner.Cli
 
         private void OnFileDetected(object sender, FileSystemEventArgs e)
         {
-            if (this.IsPathExcluded(e.FullPath)) return;
+            if (this.IsPathExcluded(e.FullPath))
+            {
+                return;
+            }
+
             this.EnqueueFile(e.FullPath, force: false);
         }
 
@@ -222,7 +231,11 @@ namespace SharpBeatScanner.Cli
                         if (!this.WaitForFileReady(filePath, TimeSpan.FromSeconds(30)))
                         {
                             // If not ready, put back in queue? We'll just remove from processing and it can be re-triggered
-                            lock (this._lock) this._processingFiles.Remove(filePath);
+                            lock (this._lock)
+                            {
+                                this._processingFiles.Remove(filePath);
+                            }
+
                             continue;
                         }
 
@@ -240,7 +253,10 @@ namespace SharpBeatScanner.Cli
                     }
                     finally
                     {
-                        lock (this._lock) this._processingFiles.Remove(filePath);
+                        lock (this._lock)
+                        {
+                            this._processingFiles.Remove(filePath);
+                        }
                     }
                 }
                 else
@@ -291,7 +307,9 @@ namespace SharpBeatScanner.Cli
                         this.SetAnalysisProgress(0.0);
                         StateChanged?.Invoke();
 
+                        // var scannedBpm = await BeatScanner.ScanBpmAsync(audio, 65536, 8, 88);
                         var scannedBpm = await BpmDetector.BpmAnalyzeAsync(audio.Data, audio.SampleRate, audio.Channels);
+                        // var scannedBpm = BpmEstimator.RefineBpm(filePath, null, audio.SampleRate / 2);
                         if (scannedBpm > 0)
                         {
                             try

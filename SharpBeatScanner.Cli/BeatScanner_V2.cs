@@ -24,9 +24,14 @@ namespace AudioAnalysis
         public static async Task<float> AnalyzeBpmAsync(float[] samples, int sampleRate)
         {
             if (samples == null || samples.Length == 0)
+            {
                 throw new ArgumentException("Samples dürfen nicht leer sein.", nameof(samples));
+            }
+
             if (sampleRate <= 0)
+            {
                 throw new ArgumentException("Ungültige Samplerate.", nameof(sampleRate));
+            }
 
             // Lagert die CPU-intensive Berechnung komplett auf den ThreadPool aus
             return await Task.Run(() =>
@@ -61,7 +66,10 @@ namespace AudioAnalysis
                 int start = t * chunkSize;
                 int end = (t == numThreads - 1) ? samples.Length : start + chunkSize;
 
-                if (start >= samples.Length) return;
+                if (start >= samples.Length)
+                {
+                    return;
+                }
 
                 float prevOutput = samples[start];
                 filtered[start] = prevOutput;
@@ -79,7 +87,10 @@ namespace AudioAnalysis
         private static float[] CalculateNoveltyCurveParallel(float[] samples)
         {
             int numFrames = (samples.Length - WindowSize) / HopSize;
-            if (numFrames <= 0) return Array.Empty<float>();
+            if (numFrames <= 0)
+            {
+                return Array.Empty<float>();
+            }
 
             float[] frameEnergies = new float[numFrames];
 
@@ -111,7 +122,10 @@ namespace AudioAnalysis
 
         private static float EstimateBpmFromNoveltyParallel(float[] noveltyCurve, int sampleRate)
         {
-            if (noveltyCurve.Length == 0) return 0f;
+            if (noveltyCurve.Length == 0)
+            {
+                return 0f;
+            }
 
             // Zeitlicher Abstand zwischen zwei Datenpunkten in der Novelty-Curve
             float frameDuration = (float) HopSize / sampleRate;

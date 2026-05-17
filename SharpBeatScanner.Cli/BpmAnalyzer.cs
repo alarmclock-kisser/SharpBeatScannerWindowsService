@@ -561,6 +561,12 @@ public static class BpmAnalyzer
 
     private static int RefineLocalPeakIndex(float[] envelope, int centerIndex, int radius)
     {
+        if (envelope.Length == 0)
+        {
+            return 0;
+        }
+
+        centerIndex = Math.Clamp(centerIndex, 0, envelope.Length - 1);
         var start = Math.Max(0, centerIndex - radius);
         var end = Math.Min(envelope.Length - 1, centerIndex + radius);
 
@@ -616,7 +622,8 @@ public static class BpmAnalyzer
         var beatTimes = new List<float>();
         for (double predicted = phaseOffset; predicted < envelope.Length; predicted += lag)
         {
-            var beatIndex = RefineLocalPeakIndex(envelope, (int)Math.Round(predicted), phaseSearchRadiusFrames);
+            var centerIndex = Math.Clamp((int)Math.Round(predicted), 0, envelope.Length - 1);
+            var beatIndex = RefineLocalPeakIndex(envelope, centerIndex, phaseSearchRadiusFrames);
             beatTimes.Add((float)(beatIndex / frameRate));
         }
 

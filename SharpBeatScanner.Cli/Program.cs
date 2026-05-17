@@ -70,7 +70,15 @@ namespace SharpBeatScanner.Cli
             startupItem.CheckedChanged += (s, e) =>
             {
                 settings.EnableAtStartup = startupItem.Checked;
-                if (settings.EnableAtStartup) SetStartup(); else RemoveStartup();
+                if (settings.EnableAtStartup)
+                {
+                    SetStartup();
+                }
+                else
+                {
+                    RemoveStartup();
+                }
+
                 saveSettings();
             };
             settingsMenu.DropDownItems.Add(startupItem);
@@ -88,8 +96,15 @@ namespace SharpBeatScanner.Cli
                 extItem.CheckedChanged += (s, e) =>
                 {
                     var list = new List<string>(settings.ExtensionsToWatch);
-                    if (extItem.Checked && !list.Contains(ext)) list.Add(ext);
-                    else if (!extItem.Checked && list.Contains(ext)) list.Remove(ext);
+                    if (extItem.Checked && !list.Contains(ext))
+                    {
+                        list.Add(ext);
+                    }
+                    else if (!extItem.Checked && list.Contains(ext))
+                    {
+                        list.Remove(ext);
+                    }
+
                     settings.ExtensionsToWatch = list.ToArray();
                     saveSettings();
                 };
