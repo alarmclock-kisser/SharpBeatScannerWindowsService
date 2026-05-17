@@ -291,7 +291,7 @@ namespace SharpBeatScanner.Cli
                         this.SetAnalysisProgress(0.0);
                         StateChanged?.Invoke();
 
-                        var scannedBpm = await BeatScanner.ScanBpmAsync(audio, 32768, 16, 88, 210, false);
+                        var scannedBpm = await BpmDetector.BpmAnalyzeAsync(audio.Data, audio.SampleRate, audio.Channels);
                         if (scannedBpm > 0)
                         {
                             try
